@@ -30,6 +30,10 @@ public class Board
 
     private readonly List<Cell> m_scanBuffer = new List<Cell>();
 
+    private readonly List<Cell> m_potentialMatchBuffer = new List<Cell>();
+
+    private readonly List<Cell> m_bonusFilterBuffer = new List<Cell>();
+
     public Board(Transform transform, GameSettings gameSettings)
     {
         m_root = transform;
@@ -47,16 +51,16 @@ public class Board
     private void CreateBoard()
     {
         Vector3 origin = new Vector3(-boardSizeX * 0.5f + 0.5f, -boardSizeY * 0.5f + 0.5f, 0f);
-        GameObject prefabBG = Resources.Load<GameObject>(Constants.PREFAB_CELL_BACKGROUND);
         for (int x = 0; x < boardSizeX; x++)
         {
             for (int y = 0; y < boardSizeY; y++)
             {
-                GameObject go = GameObject.Instantiate(prefabBG);
-                go.transform.position = origin + new Vector3(x, y, 0f);
-                go.transform.SetParent(m_root);
+                Cell cell = PoolManager.Spawn<Cell>(Constants.PREFAB_CELL_BACKGROUND);
+                if (cell == null) continue;
 
-                Cell cell = go.GetComponent<Cell>();
+                cell.transform.position = origin + new Vector3(x, y, 0f);
+                cell.transform.SetParent(m_root);
+
                 cell.Setup(x, y);
 
                 m_cells[x, y] = cell;
@@ -361,18 +365,19 @@ public class Board
                 GetHorizontalMatches(cell, m_scanBuffer);
                 if (m_scanBuffer.Count >= m_matchMin)
                 {
-                    return new List<Cell>(m_scanBuffer);
+                    return m_scanBuffer;
                 }
 
                 GetVerticalMatches(cell, m_scanBuffer);
                 if (m_scanBuffer.Count >= m_matchMin)
                 {
-                    return new List<Cell>(m_scanBuffer);
+                    return m_scanBuffer;
                 }
             }
         }
 
-        return new List<Cell>();
+        m_scanBuffer.Clear();
+        return m_scanBuffer;
     }
 
     public List<Cell> CheckBonusIfCompatible(List<Cell> matches)
@@ -394,47 +399,48 @@ public class Board
             return matches;
         }
 
-        List<Cell> result = new List<Cell>();
+        m_bonusFilterBuffer.Clear();
         switch (dir)
         {
             case eMatchDirection.HORIZONTAL:
-                foreach (var cell in matches)
+                for (int i = 0; i < matches.Count; i++)
                 {
-                    BonusItem item = cell.Item as BonusItem;
+                    BonusItem item = matches[i].Item as BonusItem;
                     if (item == null || item.ItemType == BonusItem.eBonusType.HORIZONTAL)
                     {
-                        result.Add(cell);
+                        m_bonusFilterBuffer.Add(matches[i]);
                     }
                 }
                 break;
             case eMatchDirection.VERTICAL:
-                foreach (var cell in matches)
+                for (int i = 0; i < matches.Count; i++)
                 {
-                    BonusItem item = cell.Item as BonusItem;
+                    BonusItem item = matches[i].Item as BonusItem;
                     if (item == null || item.ItemType == BonusItem.eBonusType.VERTICAL)
                     {
-                        result.Add(cell);
+                        m_bonusFilterBuffer.Add(matches[i]);
                     }
                 }
                 break;
             case eMatchDirection.ALL:
-                foreach (var cell in matches)
+                for (int i = 0; i < matches.Count; i++)
                 {
-                    BonusItem item = cell.Item as BonusItem;
+                    BonusItem item = matches[i].Item as BonusItem;
                     if (item == null || item.ItemType == BonusItem.eBonusType.ALL)
                     {
-                        result.Add(cell);
+                        m_bonusFilterBuffer.Add(matches[i]);
                     }
                 }
                 break;
         }
 
-        return result;
+        return m_bonusFilterBuffer;
     }
 
     internal List<Cell> GetPotentialMatches()
     {
-        List<Cell> result = new List<Cell>();
+        m_potentialMatchBuffer.Clear();
+        List<Cell> result = m_potentialMatchBuffer;
         for (int x = 0; x < boardSizeX; x++)
         {
             for (int y = 0; y < boardSizeY; y++)
@@ -702,7 +708,7 @@ public class Board
 
                 cell.Clear();
 
-                GameObject.Destroy(cell.gameObject);
+                PoolManager.Despawn(cell.transform);
                 m_cells[x, y] = null;
             }
         }

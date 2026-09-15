@@ -15,6 +15,8 @@ public class BonusItem : Item
 
     public eBonusType ItemType;
 
+    private static readonly List<Cell> s_explodeBuffer = new List<Cell>(16);
+
     public void SetType(eBonusType type)
     {
         ItemType = type;
@@ -68,49 +70,39 @@ public class BonusItem : Item
             case eBonusType.ALL:
                 ExplodeBomb();
                 break;
-
         }
     }
 
     private void ExplodeBomb()
     {
-        List<Cell> list = new List<Cell>();
-        if (Cell.NeighbourBottom) list.Add(Cell.NeighbourBottom);
-        if (Cell.NeighbourUp) list.Add(Cell.NeighbourUp);
+        s_explodeBuffer.Clear();
+
+        if (Cell.NeighbourBottom) s_explodeBuffer.Add(Cell.NeighbourBottom);
+        if (Cell.NeighbourUp) s_explodeBuffer.Add(Cell.NeighbourUp);
+
         if (Cell.NeighbourLeft)
         {
-            list.Add(Cell.NeighbourLeft);
-            if (Cell.NeighbourLeft.NeighbourUp)
-            {
-                list.Add(Cell.NeighbourLeft.NeighbourUp);
-            }
-            if (Cell.NeighbourLeft.NeighbourBottom)
-            {
-                list.Add(Cell.NeighbourLeft.NeighbourBottom);
-            }
-        }
-        if (Cell.NeighbourRight)
-        {
-            list.Add(Cell.NeighbourRight);
-            if (Cell.NeighbourRight.NeighbourUp)
-            {
-                list.Add(Cell.NeighbourRight.NeighbourUp);
-            }
-            if (Cell.NeighbourRight.NeighbourBottom)
-            {
-                list.Add(Cell.NeighbourRight.NeighbourBottom);
-            }
+            s_explodeBuffer.Add(Cell.NeighbourLeft);
+            if (Cell.NeighbourLeft.NeighbourUp)    s_explodeBuffer.Add(Cell.NeighbourLeft.NeighbourUp);
+            if (Cell.NeighbourLeft.NeighbourBottom) s_explodeBuffer.Add(Cell.NeighbourLeft.NeighbourBottom);
         }
 
-        for (int i = 0; i < list.Count; i++)
+        if (Cell.NeighbourRight)
         {
-            list[i].ExplodeItem();
+            s_explodeBuffer.Add(Cell.NeighbourRight);
+            if (Cell.NeighbourRight.NeighbourUp)    s_explodeBuffer.Add(Cell.NeighbourRight.NeighbourUp);
+            if (Cell.NeighbourRight.NeighbourBottom) s_explodeBuffer.Add(Cell.NeighbourRight.NeighbourBottom);
+        }
+
+        for (int i = 0; i < s_explodeBuffer.Count; i++)
+        {
+            s_explodeBuffer[i].ExplodeItem();
         }
     }
 
     private void ExplodeVerticalLine()
     {
-        List<Cell> list = new List<Cell>();
+        s_explodeBuffer.Clear();
 
         Cell newcell = Cell;
         while (true)
@@ -118,7 +110,7 @@ public class BonusItem : Item
             Cell next = newcell.NeighbourUp;
             if (next == null) break;
 
-            list.Add(next);
+            s_explodeBuffer.Add(next);
             newcell = next;
         }
 
@@ -128,20 +120,19 @@ public class BonusItem : Item
             Cell next = newcell.NeighbourBottom;
             if (next == null) break;
 
-            list.Add(next);
+            s_explodeBuffer.Add(next);
             newcell = next;
         }
 
-
-        for (int i = 0; i < list.Count; i++)
+        for (int i = 0; i < s_explodeBuffer.Count; i++)
         {
-            list[i].ExplodeItem();
+            s_explodeBuffer[i].ExplodeItem();
         }
     }
 
     private void ExplodeHorizontalLine()
     {
-        List<Cell> list = new List<Cell>();
+        s_explodeBuffer.Clear();
 
         Cell newcell = Cell;
         while (true)
@@ -149,7 +140,7 @@ public class BonusItem : Item
             Cell next = newcell.NeighbourRight;
             if (next == null) break;
 
-            list.Add(next);
+            s_explodeBuffer.Add(next);
             newcell = next;
         }
 
@@ -159,15 +150,13 @@ public class BonusItem : Item
             Cell next = newcell.NeighbourLeft;
             if (next == null) break;
 
-            list.Add(next);
+            s_explodeBuffer.Add(next);
             newcell = next;
         }
 
-
-        for (int i = 0; i < list.Count; i++)
+        for (int i = 0; i < s_explodeBuffer.Count; i++)
         {
-            list[i].ExplodeItem();
+            s_explodeBuffer[i].ExplodeItem();
         }
-
     }
 }
