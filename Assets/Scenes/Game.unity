@@ -677,7 +677,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &404902745
 RectTransform:
   m_ObjectHideFlags: 0
@@ -722,6 +722,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   LevelConditionView: {fileID: 2032806873}
   btnPause: {fileID: 264367786}
+  btnRestart: {fileID: 128450991}
 --- !u!1 &459018135
 GameObject:
   m_ObjectHideFlags: 0
