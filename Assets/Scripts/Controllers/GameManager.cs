@@ -8,6 +8,8 @@ public class GameManager : MonoBehaviour
 {
     public event Action<eStateGame> StateChangedAction = delegate { };
 
+    public eLevelMode CurrentLevelMode { get; private set; }
+
     public enum eLevelMode
     {
         TIMER,
@@ -71,7 +73,7 @@ public class GameManager : MonoBehaviour
     {
         State = state;
 
-        if(State == eStateGame.PAUSE)
+        if (State == eStateGame.PAUSE)
         {
             DOTween.PauseAll();
         }
@@ -86,6 +88,8 @@ public class GameManager : MonoBehaviour
         m_boardController = new GameObject("BoardController").AddComponent<BoardController>();
         m_boardController.StartGame(this, m_gameSettings);
 
+        ClearLevelCondition();
+
         if (mode == eLevelMode.MOVES)
         {
             m_levelCondition = this.gameObject.AddComponent<LevelMoves>();
@@ -94,12 +98,29 @@ public class GameManager : MonoBehaviour
         else if (mode == eLevelMode.TIMER)
         {
             m_levelCondition = this.gameObject.AddComponent<LevelTime>();
-            m_levelCondition.Setup(m_gameSettings.LevelMoves, m_uiMenu.GetLevelConditionView(), this);
+            m_levelCondition.Setup(m_gameSettings.LevelTime, m_uiMenu.GetLevelConditionView(), this);
         }
 
         m_levelCondition.ConditionCompleteEvent += GameOver;
 
+        CurrentLevelMode = mode;
         State = eStateGame.GAME_STARTED;
+    }
+
+    public void RestartLevel(eLevelMode mode)
+    {
+        ClearLevel();
+        LoadLevel(mode);
+    }
+
+  
+    private void ClearLevelCondition()
+    {
+        if (m_levelCondition == null) return;
+
+        m_levelCondition.ConditionCompleteEvent -= GameOver;
+        Destroy(m_levelCondition);
+        m_levelCondition = null;
     }
 
     public void GameOver()
@@ -128,12 +149,6 @@ public class GameManager : MonoBehaviour
 
         State = eStateGame.GAME_OVER;
 
-        if (m_levelCondition != null)
-        {
-            m_levelCondition.ConditionCompleteEvent -= GameOver;
-
-            Destroy(m_levelCondition);
-            m_levelCondition = null;
-        }
+        ClearLevelCondition();
     }
 }
