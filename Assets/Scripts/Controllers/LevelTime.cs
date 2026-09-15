@@ -7,6 +7,8 @@ public class LevelTime : LevelCondition
 {
     private float m_time;
 
+    private int m_displayedSeconds = -1;
+
     private GameManager m_mngr;
 
     public override void Setup(float value, Text txt, GameManager mngr)
@@ -40,6 +42,11 @@ public class LevelTime : LevelCondition
     {
         if (m_time < 0f) return;
 
-        m_txt.text = string.Format("TIME:\n{0:00}", m_time);
+        int seconds = (int)m_time;
+        if (seconds == m_displayedSeconds) return;
+
+        m_displayedSeconds = seconds;
+
+        m_txt.text = string.Format("TIME:\n{0:00}", seconds);
     }
 }
