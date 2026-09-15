@@ -1,7 +1,7 @@
 ﻿public class Constants
 {
     //Scenes
-    public const string SCENE_SPLASH = "Splash";
+    public const string SCENE_SPLASH = "SPL";
     public const string SCENE_GAME = "Game";
 
     //Paths
