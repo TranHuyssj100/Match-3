@@ -34,6 +34,11 @@ public class Board
 
     private readonly List<Cell> m_bonusFilterBuffer = new List<Cell>();
 
+    private static readonly NormalItem.eNormalType[] m_allNormalTypes =
+        (NormalItem.eNormalType[])Enum.GetValues(typeof(NormalItem.eNormalType));
+    private readonly Dictionary<NormalItem.eNormalType, int> m_normalTypeCounts =
+        new Dictionary<NormalItem.eNormalType, int>(m_allNormalTypes.Length);
+
     public Board(Transform transform, GameSettings gameSettings)
     {
         m_root = transform;
@@ -44,6 +49,11 @@ public class Board
         this.boardSizeY = gameSettings.BoardSizeY;
 
         m_cells = new Cell[boardSizeX, boardSizeY];
+
+        for (int i = 0; i < m_allNormalTypes.Length; i++)
+        {
+            m_normalTypeCounts[m_allNormalTypes[i]] = 0;
+        }
 
         CreateBoard();
     }
@@ -62,6 +72,7 @@ public class Board
                 cell.transform.SetParent(m_root);
 
                 cell.Setup(x, y);
+                cell.ClearAction += OnItemClear;
 
                 m_cells[x, y] = cell;
             }
@@ -113,6 +124,8 @@ public class Board
                 }
 
                 item.SetType(Utils.GetRandomNormalTypeExcept(m_typesBuffer));
+                IncrementTypeCount(item.ItemType);
+
                 item.SetView();
                 item.SetViewRoot(m_root);
 
@@ -164,13 +177,75 @@ public class Board
 
                 NormalItem item = new NormalItem();
 
-                item.SetType(Utils.GetRandomNormalType());
+                m_typesBuffer.Clear();
+                AddNeighbourType(cell.NeighbourUp, m_typesBuffer);
+                AddNeighbourType(cell.NeighbourRight, m_typesBuffer);
+                AddNeighbourType(cell.NeighbourBottom, m_typesBuffer);
+                AddNeighbourType(cell.NeighbourLeft, m_typesBuffer);
+
+                item.SetType(GetLeastUsedType(m_typesBuffer));
+                IncrementTypeCount(item.ItemType);
+
                 item.SetView();
                 item.SetViewRoot(m_root);
 
                 cell.Assign(item);
                 cell.ApplyItemPosition(true);
             }
+        }
+    }
+
+    private void AddNeighbourType(Cell neighbour, List<NormalItem.eNormalType> list)
+    {
+        if (neighbour == null || neighbour.IsEmpty) return;
+
+        NormalItem nitem = neighbour.Item as NormalItem;
+        if (nitem != null)
+        {
+            list.Add(nitem.ItemType);
+        }
+    }
+
+    private NormalItem.eNormalType GetLeastUsedType(List<NormalItem.eNormalType> excludeTypes)
+    {
+        NormalItem.eNormalType bestType = m_allNormalTypes[0];
+        int bestCount = int.MaxValue;
+        bool found = false;
+
+        for (int i = 0; i < m_allNormalTypes.Length; i++)
+        {
+            NormalItem.eNormalType type = m_allNormalTypes[i];
+            if (excludeTypes != null && excludeTypes.Contains(type)) continue;
+
+            int count = m_normalTypeCounts[type];
+            if (count < bestCount)
+            {
+                bestCount = count;
+                bestType = type;
+                found = true;
+            }
+        }
+        if(found) Debug.Log("GetLeastUsedType: " + bestType + " " + bestCount);
+        return found ? bestType : Utils.GetRandomNormalType();
+    }
+
+    private void IncrementTypeCount(NormalItem.eNormalType type)
+    {
+        m_normalTypeCounts[type] = m_normalTypeCounts[type] + 1;
+    }
+
+    private void DecrementTypeCount(NormalItem.eNormalType type)
+    {
+        int count = m_normalTypeCounts[type] - 1;
+        m_normalTypeCounts[type] = count > 0 ? count : 0;
+    }
+
+    private void OnItemClear(Item item)
+    {
+        NormalItem nitem = item as NormalItem;
+        if (nitem != null)
+        {
+            DecrementTypeCount(nitem.ItemType);
         }
     }
 
