@@ -77,14 +77,14 @@ public class UIMainManager : MonoBehaviour
         for (int i = 0; i < m_menuList.Length; i++)
         {
             IMenu menu = m_menuList[i];
-            if(menu is T)
+            if (menu is T)
             {
                 menu.Show();
             }
             else
             {
                 menu.Hide();
-            }            
+            }
         }
     }
 
@@ -117,5 +117,9 @@ public class UIMainManager : MonoBehaviour
     internal void ShowGameMenu()
     {
         m_gameManager.SetState(GameManager.eStateGame.GAME_STARTED);
+    }
+    internal void RestartLevel()
+    {
+        m_gameManager.RestartLevel(m_gameManager.CurrentLevelMode);
     }
 }
