@@ -11,6 +11,8 @@ public class Item
 
     public Transform View { get; private set; }
 
+    private SpriteRenderer m_spriteRenderer;
+
 
     public virtual void SetView()
     {
@@ -18,10 +20,13 @@ public class Item
 
         if (!string.IsNullOrEmpty(prefabname))
         {
-            GameObject prefab = Resources.Load<GameObject>(prefabname);
-            if (prefab)
+            View = PoolManager.Spawn(prefabname);
+            if (View)
             {
-                View = GameObject.Instantiate(prefab).transform;
+                m_spriteRenderer = View.GetComponent<SpriteRenderer>();
+
+                //a recycled view can still carry the sorting order of the last swap
+                if (m_spriteRenderer) m_spriteRenderer.sortingOrder = 0;
             }
         }
     }
@@ -58,26 +63,19 @@ public class Item
 
     public void SetSortingLayerHigher()
     {
-        if (View == null) return;
-
-        SpriteRenderer sp = View.GetComponent<SpriteRenderer>();
-        if (sp)
+        if (m_spriteRenderer)
         {
-            sp.sortingOrder = 1;
+            m_spriteRenderer.sortingOrder = 1;
         }
     }
 
 
     public void SetSortingLayerLower()
     {
-        if (View == null) return;
-
-        SpriteRenderer sp = View.GetComponent<SpriteRenderer>();
-        if (sp)
+        if (m_spriteRenderer)
         {
-            sp.sortingOrder = 0;
+            m_spriteRenderer.sortingOrder = 0;
         }
-
     }
 
     internal void ShowAppearAnimation()
@@ -98,13 +96,11 @@ public class Item
     {
         if (View)
         {
-            View.DOScale(0.1f, 0.1f).OnComplete(
-                () =>
-                {
-                    GameObject.Destroy(View.gameObject);
-                    View = null;
-                }
-                );
+            Transform view = View;
+
+            ReleaseViewReference();
+
+            view.DOScale(0.1f, 0.1f).OnComplete(() => PoolManager.Despawn(view));
         }
     }
 
@@ -132,8 +128,15 @@ public class Item
 
         if (View)
         {
-            GameObject.Destroy(View.gameObject);
-            View = null;
+            PoolManager.Despawn(View);
+
+            ReleaseViewReference();
         }
+    }
+
+    private void ReleaseViewReference()
+    {
+        View = null;
+        m_spriteRenderer = null;
     }
 }

@@ -1,7 +1,7 @@
 ﻿using System;
 using UnityEngine;
 
-public class Cell : MonoBehaviour
+public class Cell : MonoBehaviour, IPoolable
 {
     public int BoardX { get; private set; }
 
@@ -89,5 +89,21 @@ public class Cell : MonoBehaviour
     internal void ApplyItemMoveToPosition()
     {
         Item.AnimationMoveToPosition();
+    }
+
+    public void OnSpawnFromPool()
+    {
+       
+        BoardX = -1;
+        BoardY = -1;
+    }
+
+    public void OnReturnToPool()
+    {
+        Item = null;
+        NeighbourUp = null;
+        NeighbourRight = null;
+        NeighbourBottom = null;
+        NeighbourLeft = null;
     }
 }
