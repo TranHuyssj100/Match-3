@@ -2,7 +2,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 public class BoardController : MonoBehaviour
@@ -23,13 +22,21 @@ public class BoardController : MonoBehaviour
 
     private GameSettings m_gameSettings;
 
-    private List<Cell> m_potentialMatch;
+    private List<Cell> m_potentialMatch = new List<Cell>();
 
     private float m_timeAfterFill;
 
     private bool m_hintIsShown;
 
     private bool m_gameOver;
+
+    private Vector3 m_lastDragPosition;
+
+    private readonly List<Cell> m_matches = new List<Cell>();
+
+    private readonly List<Cell> m_matchesHor = new List<Cell>();
+
+    private readonly List<Cell> m_matchesVert = new List<Cell>();
 
     public void StartGame(GameManager gameManager, GameSettings gameSettings)
     {
@@ -70,7 +77,7 @@ public class BoardController : MonoBehaviour
     }
 
 
-    public void Update()
+    public void UpdateBoard()
     {
         if (m_gameOver) return;
         if (IsBusy) return;
@@ -87,11 +94,13 @@ public class BoardController : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0))
         {
-            var hit = Physics2D.Raycast(m_cam.ScreenToWorldPoint(Input.mousePosition), Vector2.zero);
-            if (hit.collider != null)
+            m_lastDragPosition = Input.mousePosition;
+
+            Collider2D collider = GetColliderUnderPointer();
+            if (collider != null)
             {
                 m_isDragging = true;
-                m_hitCollider = hit.collider;
+                m_hitCollider = collider;
             }
         }
 
@@ -102,16 +111,22 @@ public class BoardController : MonoBehaviour
 
         if (Input.GetMouseButton(0) && m_isDragging)
         {
-            var hit = Physics2D.Raycast(m_cam.ScreenToWorldPoint(Input.mousePosition), Vector2.zero);
-            if (hit.collider != null)
+            //the physics query result can only change once the pointer has actually moved
+            Vector3 pointer = Input.mousePosition;
+            if ((pointer - m_lastDragPosition).sqrMagnitude < 1f) return;
+
+            m_lastDragPosition = pointer;
+
+            Collider2D collider = GetColliderUnderPointer();
+            if (collider != null)
             {
-                if (m_hitCollider != null && m_hitCollider != hit.collider)
+                if (m_hitCollider != null && m_hitCollider != collider)
                 {
                     StopHints();
 
-                    Cell c1 = m_hitCollider.GetComponent<Cell>();
-                    Cell c2 = hit.collider.GetComponent<Cell>();
-                    if (AreItemsNeighbor(c1, c2))
+                    Cell c1;
+                    Cell c2;
+                    if (m_hitCollider.TryGetComponent(out c1) && collider.TryGetComponent(out c2) && AreItemsNeighbor(c1, c2))
                     {
                         IsBusy = true;
                         SetSortingLayer(c1, c2);
@@ -129,6 +144,11 @@ public class BoardController : MonoBehaviour
                 ResetRayCast();
             }
         }
+    }
+
+    private Collider2D GetColliderUnderPointer()
+    {
+        return Physics2D.OverlapPoint(m_cam.ScreenToWorldPoint(Input.mousePosition));
     }
 
     private void ResetRayCast()
@@ -151,13 +171,11 @@ public class BoardController : MonoBehaviour
         }
         else
         {
-            List<Cell> cells1 = GetMatches(cell1);
-            List<Cell> cells2 = GetMatches(cell2);
+            m_matches.Clear();
+            AppendMatches(cell1, m_matches);
+            AppendMatches(cell2, m_matches);
 
-            List<Cell> matches = new List<Cell>();
-            matches.AddRange(cells1);
-            matches.AddRange(cells2);
-            matches = matches.Distinct().ToList();
+            List<Cell> matches = m_matches;
 
             if (matches.Count < m_gameSettings.MatchesMin)
             {
@@ -200,21 +218,29 @@ public class BoardController : MonoBehaviour
         }
     }
 
-    private List<Cell> GetMatches(Cell cell)
+    private void AppendMatches(Cell cell, List<Cell> result)
     {
-        List<Cell> listHor = m_board.GetHorizontalMatches(cell);
-        if (listHor.Count < m_gameSettings.MatchesMin)
+        m_board.GetHorizontalMatches(cell, m_matchesHor);
+        if (m_matchesHor.Count >= m_gameSettings.MatchesMin)
         {
-            listHor.Clear();
+            AppendDistinct(m_matchesHor, result);
         }
 
-        List<Cell> listVert = m_board.GetVerticalMatches(cell);
-        if (listVert.Count < m_gameSettings.MatchesMin)
+        m_board.GetVerticalMatches(cell, m_matchesVert);
+        if (m_matchesVert.Count >= m_gameSettings.MatchesMin)
         {
-            listVert.Clear();
+            AppendDistinct(m_matchesVert, result);
         }
+    }
 
-        return listHor.Concat(listVert).Distinct().ToList();
+    private static void AppendDistinct(List<Cell> source, List<Cell> result)
+    {
+        for (int i = 0; i < source.Count; i++)
+        {
+            if (result.Contains(source[i])) continue;
+
+            result.Add(source[i]);
+        }
     }
 
     private void CollapseMatches(List<Cell> matches, Cell cellEnd)

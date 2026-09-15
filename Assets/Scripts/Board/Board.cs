@@ -2,7 +2,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 public class Board
@@ -24,6 +23,12 @@ public class Board
     private Transform m_root;
 
     private int m_matchMin;
+
+    private readonly List<NormalItem.eNormalType> m_typesBuffer = new List<NormalItem.eNormalType>(2);
+
+    private readonly List<Item> m_shuffleBuffer = new List<Item>();
+
+    private readonly List<Cell> m_scanBuffer = new List<Cell>();
 
     public Board(Transform transform, GameSettings gameSettings)
     {
@@ -63,10 +68,13 @@ public class Board
         {
             for (int y = 0; y < boardSizeY; y++)
             {
-                if (y + 1 < boardSizeY) m_cells[x, y].NeighbourUp = m_cells[x, y + 1];
-                if (x + 1 < boardSizeX) m_cells[x, y].NeighbourRight = m_cells[x + 1, y];
-                if (y > 0) m_cells[x, y].NeighbourBottom = m_cells[x, y - 1];
-                if (x > 0) m_cells[x, y].NeighbourLeft = m_cells[x - 1, y];
+                Cell cell = m_cells[x, y];
+                if (cell == null) continue;
+
+                if (y + 1 < boardSizeY) cell.NeighbourUp = m_cells[x, y + 1];
+                if (x + 1 < boardSizeX) cell.NeighbourRight = m_cells[x + 1, y];
+                if (y > 0) cell.NeighbourBottom = m_cells[x, y - 1];
+                if (x > 0) cell.NeighbourLeft = m_cells[x - 1, y];
             }
         }
 
@@ -81,13 +89,13 @@ public class Board
                 Cell cell = m_cells[x, y];
                 NormalItem item = new NormalItem();
 
-                List<NormalItem.eNormalType> types = new List<NormalItem.eNormalType>();
+                m_typesBuffer.Clear();
                 if (cell.NeighbourBottom != null)
                 {
                     NormalItem nitem = cell.NeighbourBottom.Item as NormalItem;
                     if (nitem != null)
                     {
-                        types.Add(nitem.ItemType);
+                        m_typesBuffer.Add(nitem.ItemType);
                     }
                 }
 
@@ -96,11 +104,11 @@ public class Board
                     NormalItem nitem = cell.NeighbourLeft.Item as NormalItem;
                     if (nitem != null)
                     {
-                        types.Add(nitem.ItemType);
+                        m_typesBuffer.Add(nitem.ItemType);
                     }
                 }
 
-                item.SetType(Utils.GetRandomNormalTypeExcept(types.ToArray()));
+                item.SetType(Utils.GetRandomNormalTypeExcept(m_typesBuffer));
                 item.SetView();
                 item.SetViewRoot(m_root);
 
@@ -112,27 +120,32 @@ public class Board
 
     internal void Shuffle()
     {
-        List<Item> list = new List<Item>();
+        m_shuffleBuffer.Clear();
         for (int x = 0; x < boardSizeX; x++)
         {
             for (int y = 0; y < boardSizeY; y++)
             {
-                list.Add(m_cells[x, y].Item);
+                m_shuffleBuffer.Add(m_cells[x, y].Item);
                 m_cells[x, y].Free();
             }
         }
 
+        int left = m_shuffleBuffer.Count;
         for (int x = 0; x < boardSizeX; x++)
         {
             for (int y = 0; y < boardSizeY; y++)
             {
-                int rnd = UnityEngine.Random.Range(0, list.Count);
-                m_cells[x, y].Assign(list[rnd]);
+                int rnd = UnityEngine.Random.Range(0, left);
+                m_cells[x, y].Assign(m_shuffleBuffer[rnd]);
                 m_cells[x, y].ApplyItemMoveToPosition();
 
-                list.RemoveAt(rnd);
+                //drop the used item by swapping in the last one instead of shifting the whole list
+                left--;
+                m_shuffleBuffer[rnd] = m_shuffleBuffer[left];
             }
         }
+
+        m_shuffleBuffer.Clear();
     }
 
 
@@ -185,6 +198,14 @@ public class Board
     public List<Cell> GetHorizontalMatches(Cell cell)
     {
         List<Cell> list = new List<Cell>();
+        GetHorizontalMatches(cell, list);
+
+        return list;
+    }
+
+    public void GetHorizontalMatches(Cell cell, List<Cell> list)
+    {
+        list.Clear();
         list.Add(cell);
 
         //check horizontal match
@@ -215,14 +236,20 @@ public class Board
             }
             else break;
         }
-
-        return list;
     }
 
 
     public List<Cell> GetVerticalMatches(Cell cell)
     {
         List<Cell> list = new List<Cell>();
+        GetVerticalMatches(cell, list);
+
+        return list;
+    }
+
+    public void GetVerticalMatches(Cell cell, List<Cell> list)
+    {
+        list.Clear();
         list.Add(cell);
 
         Cell newcell = cell;
@@ -252,8 +279,6 @@ public class Board
             }
             else break;
         }
-
-        return list;
     }
 
     internal void ConvertNormalToBonus(List<Cell> matches, Cell cellToConvert)
@@ -296,14 +321,23 @@ public class Board
     {
         if (matches == null || matches.Count < m_matchMin) return eMatchDirection.NONE;
 
-        var listH = matches.Where(x => x.BoardX == matches[0].BoardX).ToList();
-        if (listH.Count == matches.Count)
+        int firstX = matches[0].BoardX;
+        int firstY = matches[0].BoardY;
+
+        int sameColumn = 0;
+        int sameRow = 0;
+        for (int i = 0; i < matches.Count; i++)
+        {
+            if (matches[i].BoardX == firstX) sameColumn++;
+            if (matches[i].BoardY == firstY) sameRow++;
+        }
+
+        if (sameColumn == matches.Count)
         {
             return eMatchDirection.VERTICAL;
         }
 
-        var listV = matches.Where(x => x.BoardY == matches[0].BoardY).ToList();
-        if (listV.Count == matches.Count)
+        if (sameRow == matches.Count)
         {
             return eMatchDirection.HORIZONTAL;
         }
@@ -318,39 +352,44 @@ public class Board
 
     internal List<Cell> FindFirstMatch()
     {
-        List<Cell> list = new List<Cell>();
-
         for (int x = 0; x < boardSizeX; x++)
         {
             for (int y = 0; y < boardSizeY; y++)
             {
                 Cell cell = m_cells[x, y];
 
-                var listhor = GetHorizontalMatches(cell);
-                if (listhor.Count >= m_matchMin)
+                GetHorizontalMatches(cell, m_scanBuffer);
+                if (m_scanBuffer.Count >= m_matchMin)
                 {
-                    list = listhor;
-                    break;
+                    return new List<Cell>(m_scanBuffer);
                 }
 
-                var listvert = GetVerticalMatches(cell);
-                if (listvert.Count >= m_matchMin)
+                GetVerticalMatches(cell, m_scanBuffer);
+                if (m_scanBuffer.Count >= m_matchMin)
                 {
-                    list = listvert;
-                    break;
+                    return new List<Cell>(m_scanBuffer);
                 }
             }
         }
 
-        return list;
+        return new List<Cell>();
     }
 
     public List<Cell> CheckBonusIfCompatible(List<Cell> matches)
     {
         var dir = GetMatchDirection(matches);
 
-        var bonus = matches.Where(x => x.Item is BonusItem).FirstOrDefault();
-        if(bonus == null)
+        bool hasBonus = false;
+        for (int i = 0; i < matches.Count; i++)
+        {
+            if (matches[i].Item is BonusItem)
+            {
+                hasBonus = true;
+                break;
+            }
+        }
+
+        if (!hasBonus)
         {
             return matches;
         }
@@ -413,8 +452,7 @@ public class Board
 
                 if (cell.NeighbourRight != null)
                 {
-                    result = GetPotentialMatch(cell, cell.NeighbourRight, cell.NeighbourRight.NeighbourRight);
-                    if (result.Count > 0)
+                    if (GetPotentialMatch(cell, cell.NeighbourRight, cell.NeighbourRight.NeighbourRight, result))
                     {
                         break;
                     }
@@ -430,8 +468,7 @@ public class Board
                 \* example  */
                 if (cell.NeighbourUp != null)
                 {
-                    result = GetPotentialMatch(cell, cell.NeighbourUp, cell.NeighbourUp.NeighbourUp);
-                    if (result.Count > 0)
+                    if (GetPotentialMatch(cell, cell.NeighbourUp, cell.NeighbourUp.NeighbourUp, result))
                     {
                         break;
                     }
@@ -447,8 +484,7 @@ public class Board
                 \* example  */
                 if (cell.NeighbourBottom != null)
                 {
-                    result = GetPotentialMatch(cell, cell.NeighbourBottom, cell.NeighbourBottom.NeighbourBottom);
-                    if (result.Count > 0)
+                    if (GetPotentialMatch(cell, cell.NeighbourBottom, cell.NeighbourBottom.NeighbourBottom, result))
                     {
                         break;
                     }
@@ -464,8 +500,7 @@ public class Board
                 \* example  */
                 if (cell.NeighbourLeft != null)
                 {
-                    result = GetPotentialMatch(cell, cell.NeighbourLeft, cell.NeighbourLeft.NeighbourLeft);
-                    if (result.Count > 0)
+                    if (GetPotentialMatch(cell, cell.NeighbourLeft, cell.NeighbourLeft.NeighbourLeft, result))
                     {
                         break;
                     }
@@ -519,22 +554,18 @@ public class Board
         return result;
     }
 
-    private List<Cell> GetPotentialMatch(Cell cell, Cell neighbour, Cell target)
+    private bool GetPotentialMatch(Cell cell, Cell neighbour, Cell target, List<Cell> result)
     {
-        List<Cell> result = new List<Cell>();
+        if (neighbour == null || !neighbour.IsSameType(cell)) return false;
 
-        if (neighbour != null && neighbour.IsSameType(cell))
-        {
-            Cell third = LookForTheThirdCell(target, neighbour);
-            if (third != null)
-            {
-                result.Add(cell);
-                result.Add(neighbour);
-                result.Add(third);
-            }
-        }
+        Cell third = LookForTheThirdCell(target, neighbour);
+        if (third == null) return false;
 
-        return result;
+        result.Add(cell);
+        result.Add(neighbour);
+        result.Add(third);
+
+        return true;
     }
 
     private Cell LookForTheSecondCellHorizontal(Cell target, Cell main)
@@ -667,6 +698,8 @@ public class Board
             for (int y = 0; y < boardSizeY; y++)
             {
                 Cell cell = m_cells[x, y];
+                if (cell == null) continue;
+
                 cell.Clear();
 
                 GameObject.Destroy(cell.gameObject);

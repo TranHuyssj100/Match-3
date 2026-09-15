@@ -63,7 +63,7 @@ public class GameManager : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (m_boardController != null) m_boardController.Update();
+        if (m_boardController != null) m_boardController.UpdateBoard();
     }
 
 
