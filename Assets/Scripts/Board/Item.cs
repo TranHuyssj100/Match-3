@@ -25,13 +25,23 @@ public class Item
             {
                 m_spriteRenderer = View.GetComponent<SpriteRenderer>();
 
-                //a recycled view can still carry the sorting order of the last swap
+               
                 if (m_spriteRenderer) m_spriteRenderer.sortingOrder = 0;
+
+                ApplyView();
             }
         }
     }
 
     protected virtual string GetPrefabName() { return string.Empty; }
+
+   
+    protected virtual void ApplyView() { }
+
+    protected void SetSprite(Sprite sprite)
+    {
+        if (m_spriteRenderer) m_spriteRenderer.sprite = sprite;
+    }
 
     public virtual void SetCell(Cell cell)
     {
