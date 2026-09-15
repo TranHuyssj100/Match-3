@@ -20,6 +20,8 @@ public class Cell : MonoBehaviour, IPoolable
 
     public bool IsEmpty => Item == null;
 
+    public event Action<Item> ClearAction;
+
     public void Setup(int cellX, int cellY)
     {
         this.BoardX = cellX;
@@ -58,8 +60,12 @@ public class Cell : MonoBehaviour, IPoolable
     {
         if (Item != null)
         {
+            Item ItemCleared = Item;
+
             Item.Clear();
             Item = null;
+
+            ClearAction?.Invoke(ItemCleared);
         }
     }
 
@@ -72,8 +78,12 @@ public class Cell : MonoBehaviour, IPoolable
     {
         if (Item == null) return;
 
+        Item ItemCleared = Item;
+
         Item.ExplodeView();
         Item = null;
+
+        ClearAction?.Invoke(ItemCleared);
     }
 
     internal void AnimateItemForHint()
@@ -93,7 +103,7 @@ public class Cell : MonoBehaviour, IPoolable
 
     public void OnSpawnFromPool()
     {
-       
+
         BoardX = -1;
         BoardY = -1;
     }
@@ -105,5 +115,8 @@ public class Cell : MonoBehaviour, IPoolable
         NeighbourRight = null;
         NeighbourBottom = null;
         NeighbourLeft = null;
+        ClearAction = null;
     }
+
 }
+
